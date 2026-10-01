@@ -155,7 +155,7 @@ Required sections:
 
 - Submit your work on the main branch
 - Set a new upstream to fetch updates on our main repo
-    - `git remote add upstream https://github.com/th-koeln-iws-nlp/anlp-ws2026.git`
+    - `git remote add upstream https://github.com/th-koeln-iws-nlp/ws202627-anlp.git`
     - `git pull upstream main`
 - Work in pairs from day 1.
 - If you have questions, create an issue in your repo and tag me `@RichardSiegTH`
