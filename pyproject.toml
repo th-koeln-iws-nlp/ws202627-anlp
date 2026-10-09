@@ -22,3 +22,7 @@ dev = [
     "ruff>=0.16.8",
     "ty>=0.0.83",
 ]
+
+[tool.pytest.ini_options]
+# baseline.py and ablation_harness.py live in components/, shared by every component
+pythonpath = ["components"]

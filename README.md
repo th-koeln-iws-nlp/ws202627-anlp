@@ -18,9 +18,9 @@ Campus Claudiusstraße. 9:30 to 17:00 each day, with breaks at 11:00, 12:15 (lun
 | 3 | 13.10. | Tuesday | 13:30–15:05 | Attention II & the Transformer Block | Causal masking, multi-head attention. Positional embeddings, LayerNorm, GELU, the feed-forward expansion, residual connections, pre-LN vs post-LN | [PDF](./slides/03_transformer.pdf) |
 | 4 | 13.10. | Tuesday | 15:30–17:00 | Weights & Generation | Assembling the full GPT model and loading the original GPT-2 weights into it. Greedy decoding, temperature, top-k, top-p. Building the marimo chat interface | [PDF](./slides/04_generation.pdf) |
 | 5 | 14.10. | Wednesday | 09:30–11:00 | Pretraining | Cross-entropy and perplexity, train/val loss, AdamW, warmup and cosine schedules. Pretraining our model on TinyStories | [PDF](./slides/05_pretraining.pdf) |
-| 6 | 14.10. | Wednesday | 11:15–12:15 | The Story of LLMs | GPT-1 to GPT-3, in-context learning, scaling laws and Chinchilla, InstructGPT, the open-weights turn, architecture drift, reasoning models. Told as changes to the model we just built | [PDF](./slides/06_llm_story.pdf) |
+| 6 | 14.10. | Wednesday | 11:15–12:15 | The Story of LLMs | GPT-1 to GPT-3, in-context learning, scaling laws and Chinchilla, InstructGPT, the open-weights turn, architecture drift, reasoning models. Told as changes to the model we just built | [PDF](./slides/06_story_of_llms.pdf) |
 | 7 | 14.10. | Wednesday | 13:30–15:05 | Post-Training | Supervised fine-tuning: same loss, different data, plus the loss mask. LoRA and QLoRA. Reward models, PPO, and DPO | [PDF](./slides/07_post_training.pdf) |
-| 8 | 14.10. | Wednesday | 15:30–17:00 | Evaluating LLMs | Perplexity vs benchmarks vs LLM-as-judge. Contamination, leaderboards, Goodhart's Law. Project kick-off and component assignment | [PDF](./slides/08_evaluation.pdf) |
+| 8 | 14.10. | Wednesday | 15:30–17:00 | Evaluating LLMs | Perplexity vs benchmarks vs LLM-as-judge. Contamination, leaderboards, Goodhart's Law. Project kick-off and component assignment | [PDF](./slides/08_evaluating_llms.pdf) |
 | 9 | 15.10. | Thursday | 09:30–12:15 | **Hackathon** | Pair work on the assigned component. Mandatory checkpoint with each pair | |
 | 10 | 15.10. | Thursday | 13:30–17:00 | **Presentations** | Pair presentations and questions | |
 
@@ -47,14 +47,18 @@ On day 2 you are assigned **one architectural component** that modern LLMs chang
 
 Every component has its own folder in [components](./components/) containing two things:
 
-1. **`TASK.md`**, a one-page description: what the component is, which part of our GPT it replaces, what exactly you are expected to implement, and which measurement you should report.
-2. **A starter Python file** with the class or function already named, the arguments already defined, and the body left empty for you to fill in. Next to it is a small test that feeds a dummy batch through your code and checks that the tensor shapes come out right.
+1. **`TASK.md`**, a short description: what the component is, which part of our GPT it replaces, what exactly you are expected to implement, and which measurement you should report.
+2. **A starter Python file** with the class or function already named, the arguments already defined, and the body left empty for you to fill in. Next to it are two small tests. `test_shapes.py` feeds a dummy batch through your code and checks that the tensor shapes come out right. `test_sanity.py` checks a few limit cases, for example that RoPE does not change a vector's length.
 
-Run the test first. It does not tell you whether your component is *correct*, only whether it is *wired up correctly*, but that alone saves you an afternoon of shape errors.
+The folder `components/` also holds `baseline.py` and `ablation_harness.py`, shared by all components. Do not edit them, every pair's numbers have to come from the same code.
+
+Run the tests first. Passing them does not tell you that your component is *correct*, but it tells you that it is *wired up correctly*, and that alone saves you an afternoon of shape errors.
 
 ```bash
 uv run pytest components/06_rope/
 ```
+
+Run one folder at a time, `pytest components` as a whole does not work because the folders share file names.
 
 ### Rules
 
@@ -69,11 +73,13 @@ The point of day 3 is not to find out whether your component wins. It is to run 
 
 **1. Measure your noise floor first.**
 
+You start every run from one notebook, `uv run marimo run notebooks/ablation.py`. Pick your component and a variant, and press the button. Details are in [components/README.md](./components/README.md).
+
 Run the unmodified baseline three times, changing nothing but the random seed. You will get three different validation losses, because training is stochastic: the batch order changes, the initialisation changes, the result moves.
 
 The spread between your highest and lowest baseline run is your **noise floor**. It is how much your number moves for no reason at all. Write it down before you touch your component. On the reference setup it is 0.022, from validation losses of 1.8733, 1.8906 and 1.8685 at seeds 0, 1 and 2.
 
-Training is deterministic for a given seed, so your three baseline runs should reproduce those numbers exactly. If they do not, something in your setup differs from the protocol. Find it before you run your component.
+Training is seeded, so your three baseline runs should land very close to those numbers, within the noise floor. If they do not, something in your setup differs from the protocol. Find it before you run your component.
 
 **2. Then run your component at the same three seeds.**
 
@@ -111,7 +117,7 @@ There is no written exam and no separate oral exam. Everything is assessed from 
 
 Eight criteria, each scored from 0 to 6 points, each carrying a fixed weight. The weighted average is converted to a German grade. Four criteria are scored for you individually and four for the pair, which means **33% of your grade is yours alone**.
 
-The full form, with the description of every band, is published before the course starts: [Scoring Rubric](./slides/rubric_anlp.xlsx). 
+The full form, with the description of every band, is published before the course starts: [Scoring Rubric](./slides/rubric_anlp_ws2627.xlsx). 
 
 **The result of your ablation is not graded.** You do not get a better mark because your component happened to improve the loss, and you do not lose marks because it did not. What is graded is whether the experiment was sound and whether you can say what your numbers do and do not show.
 
