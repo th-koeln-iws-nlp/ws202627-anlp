@@ -33,8 +33,7 @@ day2_config.json
 day2_history.json
 9*.py
 
-components/
-solutions/
+solutions/components/
 scripts/
 slides/*.md
 

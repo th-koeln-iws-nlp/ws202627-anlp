@@ -6,6 +6,7 @@ A general overview of the repository:
 - [components](./components/): one folder per project component, each with a task description and a starter file
 - [notebooks](./notebooks/): marimo notebooks used in class
 - [slides](./slides/): lecture slides and the scoring rubric
+- [solutions](./solutions/): reference solutions for the notebooks and the components. The components use the unmodified GPT from here as their baseline
 
 ## Schedule
 
@@ -73,7 +74,7 @@ The point of day 3 is not to find out whether your component wins. It is to run 
 
 **1. Measure your noise floor first.**
 
-You start every run from one notebook, `uv run marimo run notebooks/ablation.py`. Pick your component and a variant, and press the button. Details are in [components/README.md](./components/README.md).
+You start every run from one notebook, `uv run marimo run components/run_ablation.py`. Pick your component and a variant, and press the button. Details are in [components/README.md](./components/README.md).
 
 Run the unmodified baseline three times, changing nothing but the random seed. You will get three different validation losses, because training is stochastic: the batch order changes, the initialisation changes, the result moves.
 
@@ -155,7 +156,9 @@ Required sections:
 
 > Claude Code: generated the first version of the RoPE rotation function. Rewrote the head-dimension handling, which was wrong for an odd number of heads. Wrote the plotting cells unchanged.
 
-**Repository requirements.** Your component in the folder the starter file came from, the shape test passing, your training configuration and seeds recorded next to your results, and a commit history showing both partners.
+**Declaration of authorship.** Each of you fills in and signs the [Eigenständigkeitserklärung](./2025-iws-eigenstandigkeitserklaerung-hausarbeit.pdf), the TH Köln form (in German), and puts the signed scan into your repository next to the report. The form refers to a list of the AI tools you used, the "Übersicht verwendeter Hilfsmittel": that is the AI-use appendix described above, name the tools by product name. We do not ask for your prompts or the generated outputs, so leave both boxes on the form unticked.
+
+**Repository requirements.** Your component in the folder the starter file came from, the shape test passing, your training configuration and seeds recorded next to your results, the signed declaration of authorship, and a commit history showing both partners.
 
 ## Assignments
 
@@ -195,7 +198,7 @@ We do not use the raw files. Pre-tokenized versions live on the Hugging Face Hub
  
 - [Neural Machine Translation by Jointly Learning to Align and Translate](https://arxiv.org/abs/1409.0473), Bahdanau et al. 2014. Attention, before the Transformer existed
 - [Attention Is All You Need](https://arxiv.org/abs/1706.03762), Vaswani et al. 2017
-- [Language Models are Unsupervised Multitask Learners](https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf), the GPT-2 paper
+- [Language Models are Unsupervised Multitask Learners](https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf), Radford et al. 2019, the GPT-2 paper
 - [Language Models are Few-Shot Learners](https://arxiv.org/abs/2005.14165), GPT-3 and in-context learning
 - [Training Compute-Optimal Large Language Models](https://arxiv.org/abs/2203.15556), the Chinchilla scaling laws
 - [Training language models to follow instructions with human feedback](https://arxiv.org/abs/2203.02155), InstructGPT and the RLHF pipeline
@@ -217,12 +220,12 @@ One per project component.
 | Positional embeddings | [Attention Is All You Need](https://arxiv.org/abs/1706.03762), section 3.5 |
 | RoPE | [RoFormer: Enhanced Transformer with Rotary Position Embedding](https://arxiv.org/abs/2104.09864) |
 | GQA | [GQA: Training Generalized Multi-Query Transformer Models](https://arxiv.org/abs/2305.13245) |
-| KV cache | [Fast Transformer Decoding: One Write-Head is All You Need](https://arxiv.org/abs/1911.02150) |
+| KV cache | [Efficient Memory Management for Large Language Model Serving with PagedAttention](https://arxiv.org/abs/2309.06180) |
  
 ### Explanations and Visualizations
  
 - [The Illustrated Transformer](https://jalammar.github.io/illustrated-transformer/), Jay Alammar. The best visual introduction there is. Read this before day 1
-- [Visualizing Attention](https://www.3blue1brown.com/lessons/attention), 3Blue1Brown. Watch it alongside the Illustrated Transformer, it explains the same thing from the other direction
+- [Attention in transformers, step-by-step](https://www.3blue1brown.com/lessons/attention), 3Blue1Brown. Watch it alongside the Illustrated Transformer, it explains the same thing from the other direction
 - [LLM Visualization](https://bbycroft.net/llm), an animated walk through every tensor operation in GPT inference. Open it next to your own code on day 1
 - [Transformer Explainer](https://poloclub.github.io/transformer-explainer/), a GPT-2 running live in the browser with its attention weights on screen
 - [MicroGPT Visualized](https://microgpt.jtauber.com/), the same idea at the smallest possible scale

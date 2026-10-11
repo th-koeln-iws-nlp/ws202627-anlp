@@ -26,3 +26,17 @@ dev = [
 [tool.pytest.ini_options]
 # baseline.py and ablation_harness.py live in components/, shared by every component
 pythonpath = ["components"]
+
+[tool.ruff.lint]
+# `import torch.nn as nn` is the Raschka style the course follows
+ignore = ["PLR0402"]
+
+[tool.ruff.lint.isort]
+# the component tests and starters import these from their own folder or from components/
+known-first-party = ["starter", "ablation_harness", "baseline"]
+
+[tool.ruff.lint.per-file-ignores]
+# unused imports are intentional here: the tests import them from the starter, the students use them
+"components/*/starter.py" = ["F401"]
+"solutions/components/*/starter_solution.py" = ["F401"]
+

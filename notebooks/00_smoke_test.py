@@ -78,7 +78,7 @@ def _():
 
             No GPU here, and that is expected and fine: this notebook
             scales itself down automatically. The course itself runs on
-            molab, not on this machine.
+            molab or the cluster, not on this machine.
             """
         )
     env_md
@@ -104,7 +104,8 @@ def _(mode):
         token_message = (
             "No HF_TOKEN found in the environment. Locally: create a file "
             "named exactly `.env` in the project root containing "
-            "`HF_TOKEN=hf_...`. On molab: add HF_TOKEN in the Secrets "
+            "`HF_TOKEN=hf_...`. On the cluster: same, in your project folder. "
+            "On molab: add HF_TOKEN in the Secrets "
             "panel, not a `.env` you create yourself there, it has to be "
             "named exactly `.env` or it gets forked along with the "
             "notebook instead of staying secret."
@@ -134,7 +135,7 @@ def _(mode):
         f"""
         ## Data
 
-        {"On GPU this downloads both train.bin (about 1 GB) and valid.bin, a few minutes the first time this ever runs on this machine, instant on every run after (it's cached). If it looks stuck for a couple of minutes, it isn't." if mode == "gpu" else "Local mode only fetches valid.bin, about 11 MB. The full ~1 GB train.bin is deliberately skipped here, that download belongs on molab, not on your laptop before the course."}
+        {"On GPU this downloads both train.bin (about 1 GB) and valid.bin, a few minutes the first time this ever runs on this machine, instant on every run after (it's cached). If it looks stuck for a couple of minutes, it isn't." if mode == "gpu" else "Local mode only fetches valid.bin, about 11 MB. The full ~1 GB train.bin is deliberately skipped here, that download belongs on molab or the cluster, not on your laptop before the course."}
         """
     )
     return
@@ -325,7 +326,7 @@ def _(
     verdict = (
         "**Ready for the course.**"
         if mode == "gpu"
-        else "**Setup OK, the course itself runs on molab.** A missing GPU here is not a problem."
+        else "**Setup OK, the course itself runs on molab or the cluster.** A missing GPU here is not a problem."
     )
     data_line = f"valid: {valid_token_count:,} tokens" if valid_token_count else "valid: n/a"
     if train_token_count:

@@ -8,7 +8,7 @@ The repository is still under construction and will change over the next days. R
 
 - [ ] A [GitHub](https://github.com) account. The team repositories are created on day 1, once the pairs are fixed, and I need your username for that
 - [ ] A [Hugging Face](https://huggingface.co/join) account. The notebooks download the dataset from the Hub, and from day 2 you upload your own trained models there
-- [ ] A [molab](https://molab.marimo.io) account. molab is marimo's cloud notebook service, and it is where we run the GPU work during the course
+- [ ] A [molab](https://molab.marimo.io) account. molab is marimo's cloud notebook service, and every one of you uses your own molab. The GPU work during the course runs on molab or on the cluster, where you are registered
 
 ## 2. Hugging Face token
 
@@ -25,6 +25,8 @@ The notebooks read it from there. `.env` is listed in `.gitignore`, so it is nev
 
 **On molab:** add `HF_TOKEN` in the notebook's **Secrets** panel. molab stores it in a `.env` file that persists between sessions and is not copied when a notebook is shared or forked. See the [molab storage documentation](https://marimo.io/pages/molab/storage) for how secrets and files behave there.
 
+**On the cluster:** create the `.env` file in your project folder on the cluster, as on your own machine.
+
 ## 3. Software on your own machine
 
 - [ ] Install [uv](https://docs.astral.sh/uv/), our package and environment manager
@@ -33,7 +35,7 @@ The notebooks read it from there. `.env` is listed in `.gitignore`, so it is nev
 
 ## 4. Smoke test, twice
 
-Run the smoke test once on your own machine and once on molab, and send me a screenshot of the result card at the bottom of each.
+Run the smoke test once on your own machine and once on molab or the cluster, and send me a screenshot of the result card at the bottom of each.
 
 **On your own machine:**
 
@@ -43,11 +45,13 @@ uv run marimo edit notebooks/00_smoke_test.py
 
 **On molab:** open it on molab with GPU activated, so it runs on a server rather than as a preview, add your token in the Secrets panel, and run all cells.
 
+**On the cluster:** run the same command as on your own machine, in your cluster session.
+
 The notebook detects whether you have a GPU and scales itself down accordingly, so running without one is a normal pass, not a problem. It checks your environment, that your Hugging Face token works, that the TinyStories dataset downloads and decodes correctly, and runs a tiny training step to prove your device computes. Nothing else needs to be downloaded separately: the notebooks pull the dataset straight from the Hub.
 
 ## 5. GPU access
 
-GPUs for the course are provided through molab, with a university GPU cluster as a backup. If your molab session has no GPU before the course, that is fine: the smoke test passes in CPU mode. Access details follow on day 1.
+GPUs for the course are provided through molab or the cluster. If your session has no GPU before the course, that is fine: the smoke test passes in CPU mode. Access details follow on day 1.
 
 
 ## 6. Pre-reading
@@ -55,7 +59,7 @@ GPUs for the course are provided through molab, with a university GPU cluster as
 All textbooks are available online through the TH Köln library.
 
 - [ ] Read [Build a Large Language Model (From Scratch)](https://www.manning.com/books/build-a-large-language-model-from-scratch), Sebastian Raschka, chapter 1. Read it **without coding**, the code comes in class
-- [ ] Watch [Visualizing Attention](https://www.3blue1brown.com/lessons/attention), 3Blue1Brown, a visual introduction to attention
+- [ ] Watch [Attention in transformers, step-by-step](https://www.3blue1brown.com/lessons/attention), 3Blue1Brown, a visual introduction to attention
 - [ ] Optional: chapter 2 of the same book, if you want more before day 1
 - [ ] Optional: skim [The Illustrated Transformer](https://jalammar.github.io/illustrated-transformer/), Jay Alammar
 
