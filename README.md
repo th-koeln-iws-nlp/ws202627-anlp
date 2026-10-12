@@ -182,6 +182,7 @@ We do not use the raw files. Pre-tokenized versions live on the Hugging Face Hub
 
 - [anlp-tinystories-gpt2](https://huggingface.co/datasets/Richard-Sieg-TH-Koln/anlp-tinystories-gpt2), for pretraining
 - [anlp-tinystories-instruct-gpt2](https://huggingface.co/datasets/Richard-Sieg-TH-Koln/anlp-tinystories-instruct-gpt2), for supervised fine-tuning
+- [anlp-tinystories-dpo-gpt2](https://huggingface.co/datasets/Richard-Sieg-TH-Koln/anlp-tinystories-dpo-gpt2), the preference pairs for DPO
 
 ## Literature & Links
  
