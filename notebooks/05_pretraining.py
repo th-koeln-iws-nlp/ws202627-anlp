@@ -101,6 +101,7 @@ def _():
 @app.function
 @torch.no_grad()
 def evaluate(model, batches):
+    # Torch tools for this gap: notebooks/torch_toolbox.py, section 05.
     # Goal: the mean cross-entropy loss of the model over a list of (x, y)
     # batches, with dropout switched off.
     # - Switch the model to eval mode and keep an empty list for the losses.
@@ -144,6 +145,7 @@ def _():
 
 @app.function
 def lr_at(step, progress):
+    # Torch tools for this gap: notebooks/torch_toolbox.py, section 05 (math.cos, math.pi).
     # Two cases.
     # - Warmup (step < WARMUP_STEPS): the learning rate grows linearly. Use
     #   (step + 1) / WARMUP_STEPS as the fraction of MAX_LR, so even step 0
@@ -182,6 +184,7 @@ def _():
 
 @app.function
 def train_step(model, optimizer, x, y, device):
+    # Torch tools for this gap: notebooks/torch_toolbox.py, section 05.
     # x, y: (batch_size, context_length) each. One training step, in this order:
     # 1. Forward pass and loss, inside a torch.autocast block. It needs
     #    device_type=device.type and dtype=torch.bfloat16, and it must only be

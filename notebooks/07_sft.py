@@ -199,6 +199,7 @@ def get_instruct_batch(tokens, loss_mask, attn_mask, batch_size, device):
     x_attn_mask against the input, since that is what MultiHeadAttention
     needs to know which key positions to ignore).
     """
+    # Tools for this gap: notebooks/torch_toolbox.py, section 07.
     # tokens, loss_mask and attn_mask are numpy arrays of shape (n_examples, MAX_LEN).
     # - Draw batch_size random row numbers with np.random.randint (from 0 up
     #   to the number of examples). The same rows are used for all four arrays.
@@ -258,6 +259,7 @@ def _():
 @app.function
 def masked_mean(per_token_values, mask):
     """Mean of per_token_values over positions where mask is 1."""
+    # Tools for this gap: notebooks/torch_toolbox.py, section 07.
     # per_token_values and mask have the same shape. The result is one number:
     # the average of per_token_values over the positions where mask is 1.
     # - Flatten the mask to 1D and turn it into floats (.reshape(-1), .float()).

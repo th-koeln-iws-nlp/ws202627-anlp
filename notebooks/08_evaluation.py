@@ -179,6 +179,7 @@ def _():
 @app.function
 def compute_perplexity(model, val_data, device, batch_size, context_length, n_batches=20):
     """Perplexity on held-out TinyStories: exp(mean cross-entropy loss)."""
+    # Tools for this gap: notebooks/torch_toolbox.py, section 08.
     # - Collect n_batches batches of random windows from val_data: call
     #   get_batch (arguments: the data, batch_size, context_length, device)
     #   once per batch and keep the results in a list.
