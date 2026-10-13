@@ -191,30 +191,50 @@ def _():
 @app.function
 @torch.no_grad()
 def generate(model, idx, max_new_tokens, context_length, temperature=0.8, top_k=50, top_p=None):
-    # idx: (b, num_tokens), the prompt to continue.
-    # Start with model.eval() and call model.train() just before you return.
+    # idx: (b, num_tokens), the prompt to continue. Build the function in
+    # layers and run the cells below after each one: first greedy decoding,
+    # then sampling, then top-k, and top-p last.
     #
-    # Then repeat max_new_tokens times, with a plain for loop:
-    #   a. idx_cond = idx[:, -context_length:]        the model only sees the last context_length tokens
-    #   b. logits = model(idx_cond)[:, -1, :]         (b, vocab_size), the last position is the prediction for the next token
-    #   c. If temperature == 0: next_id = logits.argmax(dim=-1, keepdim=True)  (b, 1),
-    #      then jump to step h (greedy decoding, no sampling).
-    #   d. logits = logits / temperature
-    #   e. If top_k is not None: top_values, _ = torch.topk(logits, top_k), then
-    #      logits[logits < top_values[:, [-1]]] = -torch.inf   (everything below the k-th best score is out)
-    #   f. If top_p is not None, in this order (do steps a, b, d, e, g, h first and come back for this one):
-    #        sorted_logits, sorted_indices = torch.sort(logits, descending=True, dim=-1)
-    #        sorted_probs = torch.softmax(sorted_logits, dim=-1)
-    #        cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
-    #        sorted_remove = cumulative_probs - sorted_probs > top_p     True for tokens beyond the top_p mass
-    #        sorted_remove[:, 0] = False                                 always keep the single best token
-    #        remove = sorted_remove.scatter(1, sorted_indices, sorted_remove)   back to the original token order
-    #        logits[remove] = -torch.inf
-    #   g. probs = torch.softmax(logits, dim=-1), then
-    #      next_id = torch.multinomial(probs, num_samples=1)   (b, 1), a random draw from probs
-    #   h. idx = torch.cat([idx, next_id], dim=1)      (b, num_tokens + 1)
+    # 1. The skeleton. Switch the model to eval mode, loop max_new_tokens
+    #    times, and switch back to train mode right before you return idx.
     #
-    # Return idx: the prompt plus every generated token.
+    # 2. Inside the loop, get the scores for the next token.
+    #    - The model only sees context_length tokens at most: cut idx down to
+    #      its last context_length tokens (slice the second dimension).
+    #    - Run the model on that crop. It returns scores for every position,
+    #      and only the last position predicts the next token, so keep only
+    #      that one: you want shape (b, vocab_size).
+    #
+    # 3. Greedy decoding, for temperature == 0. Take the highest score with
+    #    torch.argmax over the vocabulary dimension. Use keepdim=True so the
+    #    result has shape (b, 1) and fits onto idx. This case needs nothing
+    #    else, skip the steps below for it.
+    #
+    # 4. Sampling, for temperature > 0. Divide the scores by the temperature
+    #    (below 1 sharpens the distribution, above 1 flattens it), turn them
+    #    into probabilities with torch.softmax over the vocabulary dimension,
+    #    and draw one token per row with torch.multinomial(..., num_samples=1).
+    #    The result has shape (b, 1).
+    #
+    # 5. Top-k, if top_k is given. Do it before the softmax. torch.topk gives
+    #    you the k largest scores of every row. Every score smaller than the
+    #    k-th one gets set to -torch.inf, the softmax then turns it into
+    #    probability 0.
+    #
+    # 6. Append the chosen token to idx with torch.cat along dim=1, so idx
+    #    grows from (b, num_tokens) to (b, num_tokens + 1). Return the full
+    #    idx at the end: the prompt plus everything that was generated.
+    #
+    # 7. Top-p, if top_p is given. Do this last, it is the hardest part.
+    #    Sort the scores of every row from high to low (torch.sort with
+    #    descending=True also gives you the sorted indices), turn the sorted
+    #    scores into probabilities and take the running total with
+    #    torch.cumsum. Remove the tokens that come after the point where the
+    #    running total passes top_p, but never remove the single best token.
+    #    A useful test for "after that point": compare the running total
+    #    minus the token's own probability with top_p. The mask lives in
+    #    sorted order, the scores in vocabulary order: map the mask back with
+    #    Tensor.scatter, then set the removed scores to -torch.inf.
     raise NotImplementedError("implement generate, Raschka 5.3")
 
 

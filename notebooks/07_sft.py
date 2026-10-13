@@ -199,17 +199,20 @@ def get_instruct_batch(tokens, loss_mask, attn_mask, batch_size, device):
     x_attn_mask against the input, since that is what MultiHeadAttention
     needs to know which key positions to ignore).
     """
-    # tokens, loss_mask, attn_mask: numpy arrays of shape (n_examples, MAX_LEN).
-    # 1. n_examples = tokens.shape[0]
-    # 2. row_indices = np.random.randint(0, n_examples, size=batch_size)    (batch_size,) random row numbers
-    # 3. Build four tensors. Each one picks the rows in row_indices, slices
-    #    the columns, and becomes a tensor on `device`:
-    #      x           from tokens:     tokens[row_indices, :-1]      every column except the last (the input)
-    #      y           from tokens:     tokens[row_indices, 1:]       every column except the first (the next token)
-    #      y_loss_mask from loss_mask:  loss_mask[row_indices, 1:]    the same shift as y
-    #      x_attn_mask from attn_mask:  attn_mask[row_indices, :-1]   the same slice as x
-    #    For each of them: torch.from_numpy(array.astype(np.int64)).to(device)
-    # 4. return x, y, y_loss_mask, x_attn_mask
+    # tokens, loss_mask and attn_mask are numpy arrays of shape (n_examples, MAX_LEN).
+    # - Draw batch_size random row numbers with np.random.randint (from 0 up
+    #   to the number of examples). The same rows are used for all four arrays.
+    # - Build four arrays by picking those rows and slicing the columns:
+    #     x            from tokens, every column except the last (the input)
+    #     y            from tokens, every column except the first (the next
+    #                  token, the target)
+    #     y_loss_mask  from loss_mask, sliced like y (it marks which targets count)
+    #     x_attn_mask  from attn_mask, sliced like x (it marks which inputs are real)
+    # - Turn each of them into a torch tensor: cast the numpy array to
+    #   np.int64 with .astype, wrap it with torch.from_numpy, and move it to
+    #   `device` with .to.
+    # - Return the four tensors in the order x, y, y_loss_mask, x_attn_mask.
+    #   All have shape (batch_size, MAX_LEN - 1).
     raise NotImplementedError("implement get_instruct_batch, Raschka 7.3")
 
 
@@ -255,12 +258,15 @@ def _():
 @app.function
 def masked_mean(per_token_values, mask):
     """Mean of per_token_values over positions where mask is 1."""
-    # per_token_values and mask have the same shape.
-    # 1. mask_flat = mask.reshape(-1).float()                          1D, as floats
-    # 2. total = (per_token_values.reshape(-1) * mask_flat).sum()      masked-out positions become 0, then add up
-    # 3. count = mask_flat.sum().clamp(min=1)                          how many positions count, never below 1
-    #    (the clamp stops a division by zero for an all-zero mask)
-    # 4. return total / count
+    # per_token_values and mask have the same shape. The result is one number:
+    # the average of per_token_values over the positions where mask is 1.
+    # - Flatten the mask to 1D and turn it into floats (.reshape(-1), .float()).
+    # - Multiply the flattened values by the mask: masked-out positions become
+    #   0. Add everything up with .sum().
+    # - Divide by the number of positions that count (the sum of the mask), not
+    #   by the total number of positions.
+    # - An all-zero mask would divide by zero: clamp that count to at least 1
+    #   (Tensor.clamp with min=1).
     raise NotImplementedError("implement masked_mean, Raschka 7.3")
 
 

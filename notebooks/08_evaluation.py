@@ -179,10 +179,13 @@ def _():
 @app.function
 def compute_perplexity(model, val_data, device, batch_size, context_length, n_batches=20):
     """Perplexity on held-out TinyStories: exp(mean cross-entropy loss)."""
-    # 1. val_batches = [get_batch(val_data, batch_size, context_length, device) for _ in range(n_batches)]
-    #      a list of n_batches (x, y) pairs of random windows
-    # 2. val_loss = evaluate(model, val_batches)      the mean cross-entropy over those batches
-    # 3. return math.exp(val_loss)                    perplexity is the exponential of the loss
+    # - Collect n_batches batches of random windows from val_data: call
+    #   get_batch (arguments: the data, batch_size, context_length, device)
+    #   once per batch and keep the results in a list.
+    # - Hand that list to evaluate(model, batches), it returns the mean
+    #   cross-entropy loss.
+    # - Perplexity is the exponential of that loss: math.exp, returned as a
+    #   plain float.
     raise NotImplementedError("implement compute_perplexity")
 
 

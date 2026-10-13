@@ -103,20 +103,25 @@ def _():
 class FeedForward(nn.Module):
     def __init__(self, cfg):
         super().__init__()
-        # Build one attribute, self.layers, with nn.Sequential holding
-        # three modules in exactly this order:
-        #   1. nn.Linear(cfg["emb_dim"], 4 * cfg["emb_dim"])   expands every token's vector to 4 times the size
-        #   2. nn.GELU(approximate="tanh")                     the non-linearity
-        #   3. nn.Linear(4 * cfg["emb_dim"], cfg["emb_dim"])   projects back down to emb_dim
-        # Keep the name self.layers: notebook 04 loads GPT-2's weights
-        # into self.layers[0] and self.layers[2].
+        # Goal: one attribute called self.layers that holds a small network.
+        # Build it with nn.Sequential and put three modules into it, in this order:
+        #   1. a Linear layer that makes every token vector four times as long
+        #      (emb_dim comes in, 4 * emb_dim goes out)
+        #   2. a GELU activation. nn.GELU has an argument called `approximate`,
+        #      GPT-2 uses the "tanh" variant
+        #   3. a Linear layer that goes back from 4 * emb_dim to emb_dim
+        # The name self.layers matters: notebook 04 loads GPT-2's weights into
+        # the two Linear layers by their position inside it.
+        # Check yourself: how many parameters do the two Linear layers have
+        # together for emb_dim = 16? (weights and biases)
         raise NotImplementedError("implement FeedForward.__init__, Raschka 4.3")
 
     def forward(self, x):
-        # x: (b, num_tokens, emb_dim). One line: return what self.layers
-        # gives for x. nn.Linear only looks at the last dimension, so
-        # every position is processed independently. The output has
-        # the same shape as x.
+        # x: (b, num_tokens, emb_dim). Send x through self.layers and return
+        # what comes out. That is the whole method: nn.Sequential runs its
+        # modules one after the other, and nn.Linear only changes the last
+        # dimension, so every position is processed on its own and the
+        # shape stays (b, num_tokens, emb_dim).
         raise NotImplementedError("implement FeedForward.forward, Raschka 4.3")
 
 
@@ -155,30 +160,39 @@ def _():
 class TransformerBlock(nn.Module):
     def __init__(self, cfg):
         super().__init__()
-        # Create these five attributes, with exactly these names (notebook
-        # 04 loads GPT-2's weights by name):
-        #   self.att = MultiHeadAttention(d_in=cfg["emb_dim"], d_out=cfg["emb_dim"],
-        #                                 context_length=cfg["context_length"], num_heads=cfg["n_heads"],
-        #                                 dropout=cfg["drop_rate"], qkv_bias=cfg["qkv_bias"])
-        #   self.ff = FeedForward(cfg)
-        #   self.norm1 = LayerNorm(cfg["emb_dim"])      goes before the attention
-        #   self.norm2 = LayerNorm(cfg["emb_dim"])      goes before the feed-forward
-        #   self.drop_shortcut = nn.Dropout(cfg["drop_rate"])   used after both sublayers
+        # You need five attributes. The names matter, notebook 04 loads
+        # GPT-2's weights into them by name:
+        #   att            the attention layer: a MultiHeadAttention from
+        #                  notebook 02. Pass it the same keyword arguments you
+        #                  defined there (d_in, d_out, context_length,
+        #                  num_heads, dropout, qkv_bias) and read the values
+        #                  from cfg. Careful with the names: cfg calls the
+        #                  number of heads "n_heads" and the dropout rate
+        #                  "drop_rate". d_in and d_out are both emb_dim.
+        #   ff             a FeedForward, it takes the whole cfg
+        #   norm1, norm2   two separate LayerNorms over emb_dim. Why two and
+        #                  not one? Each LayerNorm has its own learnable
+        #                  scale and shift.
+        #   drop_shortcut  one nn.Dropout with the rate drop_rate, used after
+        #                  both sublayers
         raise NotImplementedError("implement TransformerBlock.__init__, Raschka 4.5")
 
     def forward(self, x, attn_mask=None):
-        # x: (b, num_tokens, emb_dim). Two sublayers, one after the other.
-        # The attention sublayer, in five steps:
-        #   1. shortcut = x
-        #   2. x = self.norm1(x)
-        #   3. x = self.att(x, attn_mask=attn_mask)
-        #   4. x = self.drop_shortcut(x)
-        #   5. x = x + shortcut         the residual connection
-        # The feed-forward sublayer: the same five steps again, starting
-        # from the new x, with self.norm2 and self.ff(x) in steps 2 and 3
-        # (no attn_mask there).
-        # Return x. Its shape is the same as the input, which is what
-        # lets blocks stack.
+        # x: (b, num_tokens, emb_dim). The block has two sublayers, first
+        # attention, then the feed-forward. Both follow the same recipe,
+        # called pre-norm with a residual connection:
+        #   (1) keep a copy of the input, this is the shortcut
+        #   (2) normalize the input
+        #   (3) run the sublayer on the normalized input
+        #   (4) apply dropout to the result
+        #   (5) add the shortcut back
+        # Do the recipe once for attention, with norm1, and a second time for
+        # the feed-forward, with norm2, starting from the result of the first.
+        # Two details: the attention takes attn_mask as a keyword argument, the
+        # feed-forward does not. Return x, its shape must still be
+        # (b, num_tokens, emb_dim), that is what lets blocks stack.
+        # Why the shortcut? Without it, gradients would have to pass through
+        # every sublayer of every block on their way back.
         raise NotImplementedError("implement TransformerBlock.forward, Raschka 4.5")
 
 
