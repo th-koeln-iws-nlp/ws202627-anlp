@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.25.0"
+__generated_with = "0.24.2"
 app = marimo.App(width="medium")
 
 with app.setup:
@@ -54,8 +54,12 @@ class LayerNorm(nn.Module):
 
     def forward(self, x):
         mean = x.mean(dim=-1, keepdim=True)  # (b, num_tokens, 1)
-        var = x.var(dim=-1, keepdim=True, unbiased=False)  # (b, num_tokens, 1)
-        norm_x = (x - mean) / torch.sqrt(var + self.eps)  # (b, num_tokens, emb_dim)
+        var = x.var(
+            dim=-1, keepdim=True, unbiased=False
+        )  # (b, num_tokens, 1)
+        norm_x = (x - mean) / torch.sqrt(
+            var + self.eps
+        )  # (b, num_tokens, emb_dim)
         return self.scale * norm_x + self.shift
 
 
@@ -67,7 +71,9 @@ def _():
     normed = layer_norm(toy_batch)
     assert normed.shape == toy_batch.shape
     assert torch.allclose(normed.mean(dim=-1), torch.zeros(2, 5), atol=1e-5)
-    mo.md(f"LayerNorm output shape: {tuple(normed.shape)}, per-token mean after norm: ~0 (confirmed)")
+    mo.md(
+        f"LayerNorm output shape: {tuple(normed.shape)}, per-token mean after norm: ~0 (confirmed)"
+    )
     return (toy_batch,)
 
 
@@ -105,7 +111,9 @@ def _(toy_batch):
     feed_forward = FeedForward(toy_ff_cfg)
     ff_out = feed_forward(toy_batch)
     assert ff_out.shape == toy_batch.shape
-    mo.md(f"FeedForward output shape: {tuple(ff_out.shape)} (matches input, as it must)")
+    mo.md(
+        f"FeedForward output shape: {tuple(ff_out.shape)} (matches input, as it must)"
+    )
     return
 
 
@@ -156,11 +164,19 @@ class TransformerBlock(nn.Module):
 
 @app.cell
 def _(toy_batch):
-    toy_block_cfg = {"emb_dim": 16, "context_length": 5, "n_heads": 2, "drop_rate": 0.0, "qkv_bias": False}
+    toy_block_cfg = {
+        "emb_dim": 16,
+        "context_length": 5,
+        "n_heads": 2,
+        "drop_rate": 0.0,
+        "qkv_bias": False,
+    }
     transformer_block = TransformerBlock(toy_block_cfg)
     block_out = transformer_block(toy_batch)
     assert block_out.shape == toy_batch.shape
-    mo.md(f"TransformerBlock output shape: {tuple(block_out.shape)} (matches input, so blocks can stack)")
+    mo.md(
+        f"TransformerBlock output shape: {tuple(block_out.shape)} (matches input, so blocks can stack)"
+    )
     return
 
 

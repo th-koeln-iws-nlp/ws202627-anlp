@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.25.0"
+__generated_with = "0.24.2"
 app = marimo.App(width="medium")
 
 with app.setup:
@@ -48,7 +48,9 @@ with app.setup:
     # the two checkpoint formats this course has used (see load_checkpoint_model
     # below): the calibration checkpoint embeds its config in checkpoint.pt
     # itself, the newer pushes (97_sft_sanity.py, 07c_dpo.py) save it separately.
-    PRETRAINED_CHECKPOINT_REPO_ID = "Richard-Sieg-TH-Koln/anlp-calibration-checkpoint-small"
+    PRETRAINED_CHECKPOINT_REPO_ID = (
+        "Richard-Sieg-TH-Koln/anlp-calibration-checkpoint-small"
+    )
     SFT_CHECKPOINT_REPO_ID = "Richard-Sieg-TH-Koln/anlp-sft-sanity-checkpoint"
     DPO_CHECKPOINT_REPO_ID = "Richard-Sieg-TH-Koln/anlp-dpo-checkpoint"
 
@@ -92,12 +94,24 @@ def load_checkpoint_model(repo_id, embedded_config, device):
     config.json file next to it (97_sft_sanity.py's and 07c_dpo.py's
     format). Returns (model, config).
     """
-    checkpoint_path = hf_hub_download(repo_id=repo_id, filename="checkpoint.pt", repo_type="model", token=hf_token)
-    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+    checkpoint_path = hf_hub_download(
+        repo_id=repo_id,
+        filename="checkpoint.pt",
+        repo_type="model",
+        token=hf_token,
+    )
+    checkpoint = torch.load(
+        checkpoint_path, map_location="cpu", weights_only=True
+    )
     if embedded_config:
         cfg = checkpoint["config"]
     else:
-        config_path = hf_hub_download(repo_id=repo_id, filename="config.json", repo_type="model", token=hf_token)
+        config_path = hf_hub_download(
+            repo_id=repo_id,
+            filename="config.json",
+            repo_type="model",
+            token=hf_token,
+        )
         cfg = json.loads(Path(config_path).read_text())
 
     model = GPTModel(cfg).to(device)
@@ -113,9 +127,15 @@ def _():
 
 @app.cell
 def _(device):
-    pretrained_model, pretrained_cfg = load_checkpoint_model(PRETRAINED_CHECKPOINT_REPO_ID, embedded_config=True, device=device)
-    sft_model, sft_cfg = load_checkpoint_model(SFT_CHECKPOINT_REPO_ID, embedded_config=False, device=device)
-    dpo_model, dpo_cfg = load_checkpoint_model(DPO_CHECKPOINT_REPO_ID, embedded_config=False, device=device)
+    pretrained_model, pretrained_cfg = load_checkpoint_model(
+        PRETRAINED_CHECKPOINT_REPO_ID, embedded_config=True, device=device
+    )
+    sft_model, sft_cfg = load_checkpoint_model(
+        SFT_CHECKPOINT_REPO_ID, embedded_config=False, device=device
+    )
+    dpo_model, dpo_cfg = load_checkpoint_model(
+        DPO_CHECKPOINT_REPO_ID, embedded_config=False, device=device
+    )
 
     for _model in (pretrained_model, sft_model, dpo_model):
         _model.eval()
@@ -152,7 +172,9 @@ def _():
 
 @app.cell
 def _():
-    valid_bin_path = hf_hub_download(repo_id=DATASET_REPO_ID, filename="valid.bin", repo_type="dataset")
+    valid_bin_path = hf_hub_download(
+        repo_id=DATASET_REPO_ID, filename="valid.bin", repo_type="dataset"
+    )
     tinystories_val_data = np.memmap(valid_bin_path, dtype=np.uint16, mode="r")
     mo.md(f"{len(tinystories_val_data):,} held-out TinyStories tokens")
     return (tinystories_val_data,)
@@ -177,7 +199,9 @@ def _():
 
 
 @app.function
-def compute_perplexity(model, val_data, device, batch_size, context_length, n_batches=20):
+def compute_perplexity(
+    model, val_data, device, batch_size, context_length, n_batches=20
+):
     """Perplexity on held-out TinyStories: exp(mean cross-entropy loss)."""
     # Tools for this gap: notebooks/torch_toolbox.py, section 08.
     # - Collect n_batches batches of random windows from val_data: call
@@ -192,17 +216,46 @@ def compute_perplexity(model, val_data, device, batch_size, context_length, n_ba
 
 @app.cell
 def _(device, pretrained_model, tinystories_val_data):
-    _ppl = compute_perplexity(pretrained_model, tinystories_val_data, device, batch_size=8, context_length=64, n_batches=4)
-    assert math.isfinite(_ppl) and _ppl > 1, "perplexity must be a finite number greater than 1"
-    mo.md(f"compute_perplexity() smoke test on the pretrained model: {_ppl:.1f}")
+    _ppl = compute_perplexity(
+        pretrained_model,
+        tinystories_val_data,
+        device,
+        batch_size=8,
+        context_length=64,
+        n_batches=4,
+    )
+    assert math.isfinite(_ppl) and _ppl > 1, (
+        "perplexity must be a finite number greater than 1"
+    )
+    mo.md(
+        f"compute_perplexity() smoke test on the pretrained model: {_ppl:.1f}"
+    )
     return
 
 
 @app.cell
 def _(device, dpo_model, pretrained_model, sft_model, tinystories_val_data):
-    pretrained_ppl = compute_perplexity(pretrained_model, tinystories_val_data, device, batch_size=32, context_length=MAX_LEN)
-    sft_ppl = compute_perplexity(sft_model, tinystories_val_data, device, batch_size=32, context_length=MAX_LEN)
-    dpo_ppl = compute_perplexity(dpo_model, tinystories_val_data, device, batch_size=32, context_length=MAX_LEN)
+    pretrained_ppl = compute_perplexity(
+        pretrained_model,
+        tinystories_val_data,
+        device,
+        batch_size=32,
+        context_length=MAX_LEN,
+    )
+    sft_ppl = compute_perplexity(
+        sft_model,
+        tinystories_val_data,
+        device,
+        batch_size=32,
+        context_length=MAX_LEN,
+    )
+    dpo_ppl = compute_perplexity(
+        dpo_model,
+        tinystories_val_data,
+        device,
+        batch_size=32,
+        context_length=MAX_LEN,
+    )
 
     mo.md(
         f"""
@@ -264,7 +317,15 @@ def truncate_at_eot(token_ids):
 
 @app.function
 @torch.no_grad()
-def generate_batch(model, prompt_id_lists, max_new_tokens, context_length, tokenizer, temperature=0.8, top_k=50):
+def generate_batch(
+    model,
+    prompt_id_lists,
+    max_new_tokens,
+    context_length,
+    tokenizer,
+    temperature=0.8,
+    top_k=50,
+):
     """Batched generation, left-padded so every row's real content ends at the same position.
 
     prompt_id_lists: a list of token-id lists, one per prompt, lengths may differ.
@@ -275,22 +336,46 @@ def generate_batch(model, prompt_id_lists, max_new_tokens, context_length, token
     batch_size = len(prompt_id_lists)
     max_prompt_len = max(len(ids) for ids in prompt_id_lists)
 
-    idx = torch.full((batch_size, max_prompt_len), EOT, dtype=torch.long, device=device)  # (batch_size, max_prompt_len)
-    attn_mask = torch.zeros((batch_size, max_prompt_len), dtype=torch.long, device=device)  # (batch_size, max_prompt_len)
+    idx = torch.full(
+        (batch_size, max_prompt_len), EOT, dtype=torch.long, device=device
+    )  # (batch_size, max_prompt_len)
+    attn_mask = torch.zeros(
+        (batch_size, max_prompt_len), dtype=torch.long, device=device
+    )  # (batch_size, max_prompt_len)
     for i, ids in enumerate(prompt_id_lists):
-        idx[i, max_prompt_len - len(ids) :] = torch.tensor(ids, device=device)  # right-align: real tokens end at the last column
+        idx[i, max_prompt_len - len(ids) :] = torch.tensor(
+            ids, device=device
+        )  # right-align: real tokens end at the last column
         attn_mask[i, max_prompt_len - len(ids) :] = 1
 
     for _ in range(max_new_tokens):
-        idx_cond = idx[:, -context_length:]  # (batch_size, min(num_tokens, context_length))
-        attn_cond = attn_mask[:, -context_length:]  # (batch_size, min(num_tokens, context_length))
-        logits = model(idx_cond, attn_mask=attn_cond)[:, -1, :]  # (batch_size, vocab_size), always the true last position now
+        idx_cond = idx[
+            :, -context_length:
+        ]  # (batch_size, min(num_tokens, context_length))
+        attn_cond = attn_mask[
+            :, -context_length:
+        ]  # (batch_size, min(num_tokens, context_length))
+        logits = model(idx_cond, attn_mask=attn_cond)[
+            :, -1, :
+        ]  # (batch_size, vocab_size), always the true last position now
         top_values, _ = torch.topk(logits, top_k)
         logits[logits < top_values[:, [-1]]] = -torch.inf
-        probs = torch.softmax(logits / temperature, dim=-1)  # (batch_size, vocab_size)
-        next_id = torch.multinomial(probs, num_samples=1)  # (batch_size, 1)
+        probs = torch.softmax(
+            logits / temperature, dim=-1
+        )  # (batch_size, vocab_size)
+        next_id = torch.multinomial(
+            probs, num_samples=1
+        )  # (batch_size, 1)
         idx = torch.cat([idx, next_id], dim=1)
-        attn_mask = torch.cat([attn_mask, torch.ones((batch_size, 1), dtype=torch.long, device=device)], dim=1)
+        attn_mask = torch.cat(
+            [
+                attn_mask,
+                torch.ones(
+                    (batch_size, 1), dtype=torch.long, device=device
+                ),
+            ],
+            dim=1,
+        )
 
     model.train()
     completions = []
@@ -322,12 +407,16 @@ def _(device, gpt2_tokenizer, sft_model):
     _max_len = max(len(i) for i in _ids)
 
     # Right padding, on purpose: real content first, EOT padding after.
-    _right_idx = torch.full((2, _max_len), EOT, dtype=torch.long, device=device)
+    _right_idx = torch.full(
+        (2, _max_len), EOT, dtype=torch.long, device=device
+    )
     for _i, _tid in enumerate(_ids):
         _right_idx[_i, : len(_tid)] = torch.tensor(_tid, device=device)
 
     with torch.no_grad():
-        _logits = sft_model(_right_idx)[:, -1, :]  # (2, vocab_size), reads column max_len - 1 for BOTH rows
+        _logits = sft_model(_right_idx)[
+            :, -1, :
+        ]  # (2, vocab_size), reads column max_len - 1 for BOTH rows
     _next_token = _logits.argmax(dim=-1)
     _decoded_next = [gpt2_tokenizer.decode([t.item()]) for t in _next_token]
 
@@ -357,7 +446,13 @@ def _(dpo_model, gpt2_tokenizer):
         "Summary: A boy loses his toy.\nStory:\n",
     ]
     _ids = [gpt2_tokenizer.encode_ordinary(p) for p in _prompts]
-    _completions = generate_batch(dpo_model, _ids, max_new_tokens=60, context_length=MAX_LEN, tokenizer=gpt2_tokenizer)
+    _completions = generate_batch(
+        dpo_model,
+        _ids,
+        max_new_tokens=60,
+        context_length=MAX_LEN,
+        tokenizer=gpt2_tokenizer,
+    )
 
     left_padded_demo_md = mo.md(
         f"""
@@ -398,7 +493,11 @@ def parse_required_words(words_field):
 def count_word_matches(text, required_words):
     """How many of required_words appear as whole words in text, case-insensitive (see 96_build_preference_pairs.py)."""
     text_lower = text.lower()
-    return sum(1 for word in required_words if re.search(rf"\b{re.escape(word.lower())}\b", text_lower))
+    return sum(
+        1
+        for word in required_words
+        if re.search(rf"\b{re.escape(word.lower())}\b", text_lower)
+    )
 
 
 @app.cell(hide_code=True)
@@ -417,25 +516,50 @@ def _():
 @app.cell
 def _():
     instruct_valid_tokens = np.load(
-        hf_hub_download(repo_id=INSTRUCT_DATASET_REPO_ID, filename="valid_tokens.npy", repo_type="dataset")
+        hf_hub_download(
+            repo_id=INSTRUCT_DATASET_REPO_ID,
+            filename="valid_tokens.npy",
+            repo_type="dataset",
+        )
     )
     instruct_valid_loss_mask = np.load(
-        hf_hub_download(repo_id=INSTRUCT_DATASET_REPO_ID, filename="valid_loss_mask.npy", repo_type="dataset")
+        hf_hub_download(
+            repo_id=INSTRUCT_DATASET_REPO_ID,
+            filename="valid_loss_mask.npy",
+            repo_type="dataset",
+        )
     )
     instruct_valid_attn_mask = np.load(
-        hf_hub_download(repo_id=INSTRUCT_DATASET_REPO_ID, filename="valid_attn_mask.npy", repo_type="dataset")
+        hf_hub_download(
+            repo_id=INSTRUCT_DATASET_REPO_ID,
+            filename="valid_attn_mask.npy",
+            repo_type="dataset",
+        )
     )
-    mo.md(f"loaded {instruct_valid_tokens.shape[0]:,} tokenized valid examples from `{INSTRUCT_DATASET_REPO_ID}`")
-    return instruct_valid_attn_mask, instruct_valid_loss_mask, instruct_valid_tokens
+    mo.md(
+        f"loaded {instruct_valid_tokens.shape[0]:,} tokenized valid examples from `{INSTRUCT_DATASET_REPO_ID}`"
+    )
+    return (
+        instruct_valid_attn_mask,
+        instruct_valid_loss_mask,
+        instruct_valid_tokens,
+    )
 
 
 @app.cell
-def _(gpt2_tokenizer, instruct_valid_attn_mask, instruct_valid_loss_mask, instruct_valid_tokens):
+def _(
+    gpt2_tokenizer,
+    instruct_valid_attn_mask,
+    instruct_valid_loss_mask,
+    instruct_valid_tokens,
+):
     def _decode_prompt(row_idx):
         _loss_mask = instruct_valid_loss_mask[row_idx]
         _attn_mask = instruct_valid_attn_mask[row_idx]
         _prompt_end = int((_loss_mask == 0).sum() - (_attn_mask == 0).sum())
-        return gpt2_tokenizer.decode(instruct_valid_tokens[row_idx, :_prompt_end].tolist())
+        return gpt2_tokenizer.decode(
+            instruct_valid_tokens[row_idx, :_prompt_end].tolist()
+        )
 
     _rng = np.random.default_rng(seed=2)
     _row_order = _rng.permutation(instruct_valid_tokens.shape[0])
@@ -446,23 +570,39 @@ def _(gpt2_tokenizer, instruct_valid_attn_mask, instruct_valid_loss_mask, instru
         _words_match = re.search(r"Words: (.+)", _prompt_text)
         if _words_match is None:
             continue
-        task_prompts.append({"prompt": _prompt_text, "required_words": parse_required_words(_words_match.group(1))})
+        task_prompts.append(
+            {
+                "prompt": _prompt_text,
+                "required_words": parse_required_words(_words_match.group(1)),
+            }
+        )
         if len(task_prompts) >= N_TASK_PROMPTS:
             break
 
-    mo.md(f"{len(task_prompts):,} held-out instruct prompts with a usable `Words:` field")
+    mo.md(
+        f"{len(task_prompts):,} held-out instruct prompts with a usable `Words:` field"
+    )
     return (task_prompts,)
 
 
 @app.cell
-def _(device, dpo_model, gpt2_tokenizer, pretrained_model, sft_model, task_prompts):
+def _(dpo_model, gpt2_tokenizer, pretrained_model, sft_model, task_prompts):
     def _generate_all(model):
         completions = []
         for _start in range(0, len(task_prompts), GEN_BATCH_SIZE):
             _batch_prompts = task_prompts[_start : _start + GEN_BATCH_SIZE]
-            _prompt_ids = [gpt2_tokenizer.encode_ordinary(p["prompt"]) for p in _batch_prompts]
+            _prompt_ids = [
+                gpt2_tokenizer.encode_ordinary(p["prompt"])
+                for p in _batch_prompts
+            ]
             completions.extend(
-                generate_batch(model, _prompt_ids, GEN_MAX_NEW_TOKENS, MAX_LEN, gpt2_tokenizer)
+                generate_batch(
+                    model,
+                    _prompt_ids,
+                    GEN_MAX_NEW_TOKENS,
+                    MAX_LEN,
+                    gpt2_tokenizer,
+                )
             )
         return completions
 
@@ -472,7 +612,8 @@ def _(device, dpo_model, gpt2_tokenizer, pretrained_model, sft_model, task_promp
 
     def _inclusion_rate(completions):
         fractions = [
-            count_word_matches(c, p["required_words"]) / len(p["required_words"])
+            count_word_matches(c, p["required_words"])
+            / len(p["required_words"])
             for c, p in zip(completions, task_prompts)
         ]
         return sum(fractions) / len(fractions)
@@ -500,15 +641,20 @@ def _(
     # it). Whether DPO specifically beats SFT on the task metric is a
     # smaller effect on top of that, real but not guaranteed at every
     # training length or sample size, so it gets checked, not assumed.
-    _perplexity_favors_pretrained = pretrained_ppl < sft_ppl and pretrained_ppl < dpo_ppl
-    _task_metric_favors_pretrained_least = pretrained_inclusion < sft_inclusion and pretrained_inclusion < dpo_inclusion
+    _perplexity_favors_pretrained = (
+        pretrained_ppl < sft_ppl and pretrained_ppl < dpo_ppl
+    )
+    _task_metric_favors_pretrained_least = (
+        pretrained_inclusion < sft_inclusion
+        and pretrained_inclusion < dpo_inclusion
+    )
     _dpo_beats_sft_on_task_metric = dpo_inclusion > sft_inclusion
 
     if _perplexity_favors_pretrained and _task_metric_favors_pretrained_least:
         _headline = (
             "Sit with this before reading on: the ranking flips. Perplexity puts the pretrained model first, "
             "the task metric puts it last, on the same three models. The two numbers measure different things, "
-            "fit to a distribution versus success at a task, and neither is \"the\" score."
+            'fit to a distribution versus success at a task, and neither is "the" score.'
         )
     else:
         _headline = (
@@ -521,7 +667,7 @@ def _(
         "DPO also edges out SFT specifically on the task metric here, the effect the DPO demo's preference "
         "pairs were built to produce."
         if _dpo_beats_sft_on_task_metric
-        else "SFT and DPO are close enough on the task metric here that which one is \"ahead\" should not be "
+        else 'SFT and DPO are close enough on the task metric here that which one is "ahead" should not be '
         "read as a strong claim, particularly on a small or lightly-trained run, see the noise-floor point "
         "block 07 already made."
     )
@@ -539,33 +685,6 @@ def _(
         {_dpo_note}
         """
     )
-    return
-
-
-@app.cell(hide_code=True)
-def _():
-    mo.md("""
-    ## 3. A benchmark, discussed not run
-
-    HellaSwag, ARC, the standard leaderboard suites: multiple-choice
-    tasks designed for models with billions of parameters and broad
-    world knowledge. A 19 to 30 million parameter model that has only
-    ever seen TinyStories scores at chance on these, four options, 25%,
-    regardless of which of the three checkpoints you pick. Running it
-    would burn slides on a number that carries no information.
-
-    The number still teaches something: benchmarks need scale to mean
-    anything, which is why nobody benchmarks a model this size on
-    HellaSwag for real. And at the scale where benchmarks do mean
-    something, two more problems show up that do not exist at this
-    size: **contamination** (the benchmark's own questions leaking
-    into a model's enormous pretraining corpus, so it is recognising
-    answers, not reasoning), and the general unreliability of
-    leaderboard numbers once labs can choose which checkpoint, which
-    prompt template and which run to report. A benchmark score is a
-    measurement with its own error bars and its own failure modes,
-    same as the required-word counter above.
-    """)
     return
 
 

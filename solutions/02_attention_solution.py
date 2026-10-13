@@ -110,7 +110,7 @@ def _(toy_embeddings, toy_weights):
     )  # same sum, written out term by term
     assert torch.allclose(toy_context[0, 2], hand_computed_row2)
     mo.md(f"context vector shape: {tuple(toy_context.shape)}, row 2 matches the hand-computed weighted sum: confirmed")
-    return (toy_context,)
+    return
 
 
 @app.cell
