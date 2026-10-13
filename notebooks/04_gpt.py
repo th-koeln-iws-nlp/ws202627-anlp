@@ -91,49 +91,50 @@ def _():
     start at. GPT-2 uses `N(0, 0.02)` for every linear and embedding
     weight, and zero for biases, that is what `_init_weights` applies via
     `self.apply(...)` before the tying happens.
+
+    This class is given complete, read it and run the cells below. The
+    function you write in this notebook is `generate`.
     """)
     return
 
 
 @app.class_definition
 class GPTModel(nn.Module):
+    """Given complete. Read it top to bottom: it only assembles the pieces you built in 02 and 03."""
+
     def __init__(self, cfg):
         super().__init__()
-        # Two embedding tables: one mapping token ids to emb_dim vectors
-        # (vocab_size of them), one mapping position indices to emb_dim
-        # vectors (context_length of them). A dropout layer for their
-        # sum.
-        #
-        # A stack of n_layers TransformerBlocks, in order, as an
-        # nn.ModuleList rather than nn.Sequential: forward() needs to
-        # pass attn_mask to each block, which nn.Sequential can't do.
-        #
-        # A final LayerNorm, then a linear layer with no bias projecting
-        # emb_dim back out to vocab_size logits.
-        #
-        # Apply _init_weights (below) to every submodule via self.apply,
-        # then tie the output layer's weight to the token embedding's
-        # weight, so they literally share the same tensor.
-        raise NotImplementedError("implement GPTModel.__init__, Raschka 4.6")
+        self.tok_emb = nn.Embedding(cfg["vocab_size"], cfg["emb_dim"])  # one vector per token id
+        self.pos_emb = nn.Embedding(cfg["context_length"], cfg["emb_dim"])  # one vector per position
+        self.drop_emb = nn.Dropout(cfg["drop_rate"])
+
+        # nn.ModuleList, not nn.Sequential: forward() has to pass attn_mask to every block
+        self.trf_blocks = nn.ModuleList([TransformerBlock(cfg) for _ in range(cfg["n_layers"])])
+
+        self.final_norm = LayerNorm(cfg["emb_dim"])
+        self.out_head = nn.Linear(cfg["emb_dim"], cfg["vocab_size"], bias=False)
+
+        self.apply(self._init_weights)  # runs _init_weights once for every submodule
+        self.out_head.weight = self.tok_emb.weight  # weight tying: both layers share one tensor
 
     def _init_weights(self, module):
-        # GPT-2 initializes every nn.Linear and nn.Embedding weight from
-        # a normal distribution with mean 0 and std 0.02, and every
-        # nn.Linear bias to zero. Check the module's type and apply
-        # that. (This runs once per submodule, via self.apply above.)
-        raise NotImplementedError("implement GPTModel._init_weights, GPT-2 uses N(0, 0.02)")
+        # GPT-2: every linear and embedding weight from N(0, 0.02), every linear bias zero
+        if isinstance(module, (nn.Linear, nn.Embedding)):
+            nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if isinstance(module, nn.Linear) and module.bias is not None:
+                nn.init.zeros_(module.bias)
 
     def forward(self, in_idx, attn_mask=None):
-        # in_idx: (b, num_tokens) token ids.
-        #
-        # Look up token embeddings for in_idx, and positional embeddings
-        # for the position indices 0..num_tokens-1 (the same positions
-        # for every sequence in the batch, so they broadcast over it).
-        # Add the two together, apply dropout, then loop over the
-        # transformer blocks yourself (it's a ModuleList now, not a
-        # single callable), passing attn_mask to each. Apply the final
-        # norm, and project to logits: (b, num_tokens, vocab_size).
-        raise NotImplementedError("implement GPTModel.forward, Raschka 4.6")
+        batch_size, seq_len = in_idx.shape  # (b, num_tokens)
+        tok_embeds = self.tok_emb(in_idx)  # (b, num_tokens, emb_dim)
+        pos_embeds = self.pos_emb(torch.arange(seq_len, device=in_idx.device))  # (num_tokens, emb_dim)
+        x = tok_embeds + pos_embeds  # (b, num_tokens, emb_dim), the position vectors broadcast over the batch
+        x = self.drop_emb(x)
+        for block in self.trf_blocks:
+            x = block(x, attn_mask=attn_mask)  # (b, num_tokens, emb_dim)
+        x = self.final_norm(x)
+        logits = self.out_head(x)  # (b, num_tokens, vocab_size)
+        return logits
 
 
 @app.function
@@ -190,30 +191,30 @@ def _():
 @app.function
 @torch.no_grad()
 def generate(model, idx, max_new_tokens, context_length, temperature=0.8, top_k=50, top_p=None):
-    # idx: (b, num_tokens), the prompt to continue. Put the model in
-    # eval mode (restore train mode before returning).
+    # idx: (b, num_tokens), the prompt to continue.
+    # Start with model.eval() and call model.train() just before you return.
     #
-    # Repeat max_new_tokens times:
-    #   Crop idx to at most its last context_length tokens (the model
-    #   has no memory beyond that window), run the model on the crop,
-    #   and keep only the logits at the final position: (b, vocab_size).
+    # Then repeat max_new_tokens times, with a plain for loop:
+    #   a. idx_cond = idx[:, -context_length:]        the model only sees the last context_length tokens
+    #   b. logits = model(idx_cond)[:, -1, :]         (b, vocab_size), the last position is the prediction for the next token
+    #   c. If temperature == 0: next_id = logits.argmax(dim=-1, keepdim=True)  (b, 1),
+    #      then jump to step h (greedy decoding, no sampling).
+    #   d. logits = logits / temperature
+    #   e. If top_k is not None: top_values, _ = torch.topk(logits, top_k), then
+    #      logits[logits < top_values[:, [-1]]] = -torch.inf   (everything below the k-th best score is out)
+    #   f. If top_p is not None, in this order (do steps a, b, d, e, g, h first and come back for this one):
+    #        sorted_logits, sorted_indices = torch.sort(logits, descending=True, dim=-1)
+    #        sorted_probs = torch.softmax(sorted_logits, dim=-1)
+    #        cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
+    #        sorted_remove = cumulative_probs - sorted_probs > top_p     True for tokens beyond the top_p mass
+    #        sorted_remove[:, 0] = False                                 always keep the single best token
+    #        remove = sorted_remove.scatter(1, sorted_indices, sorted_remove)   back to the original token order
+    #        logits[remove] = -torch.inf
+    #   g. probs = torch.softmax(logits, dim=-1), then
+    #      next_id = torch.multinomial(probs, num_samples=1)   (b, 1), a random draw from probs
+    #   h. idx = torch.cat([idx, next_id], dim=1)      (b, num_tokens + 1)
     #
-    #   1. If temperature == 0: take the argmax over the last dimension
-    #      and skip straight to appending it, no sampling at all
-    #      (Raschka 5.3's greedy decoding).
-    #   2. Otherwise, divide the logits by temperature.
-    #   3. If top_k is given, restrict the logits to the top_k highest
-    #      (mask everything else to -inf).
-    #   4. If top_p is given, sort the logits descending, take their
-    #      softmax, and find the smallest leading set of tokens whose
-    #      probabilities sum to at least top_p (always keep at least
-    #      the single most likely token), masking everything else to
-    #      -inf.
-    #   5. Sample the next token from softmax(logits).
-    #
-    #   Append the sampled (or argmax) token to idx: (b, num_tokens + 1).
-    #
-    # Return the full idx, prompt plus every generated token.
+    # Return idx: the prompt plus every generated token.
     raise NotImplementedError("implement generate, Raschka 5.3")
 
 

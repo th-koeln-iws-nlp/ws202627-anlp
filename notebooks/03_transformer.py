@@ -40,25 +40,29 @@ def _():
     undo that normalization if it turns out to be useful. Pre-LN
     (normalizing before each sublayer, not after) is what makes deep
     transformers trainable without careful learning-rate warmup tricks.
+
+    This class is given complete, read it and run the check below. You
+    write `FeedForward` and `TransformerBlock` yourself.
     """)
     return
 
 
 @app.class_definition
 class LayerNorm(nn.Module):
+    """Given complete. Read it line by line, then write FeedForward and TransformerBlock in the same style."""
+
     def __init__(self, emb_dim):
         super().__init__()
-        # A small constant to avoid dividing by zero, plus two learnable
-        # per-channel parameters of shape (emb_dim,): a scale and a shift.
-        raise NotImplementedError("implement LayerNorm.__init__, Raschka 4.2")
+        self.eps = 1e-5  # a small constant, so we never divide by zero
+        self.scale = nn.Parameter(torch.ones(emb_dim))  # (emb_dim,), learnable, starts at 1
+        self.shift = nn.Parameter(torch.zeros(emb_dim))  # (emb_dim,), learnable, starts at 0
 
     def forward(self, x):
-        # x: (b, num_tokens, emb_dim). Normalize each token's embedding
-        # independently, over the last dimension only, to zero mean and
-        # unit variance (use the biased variance estimator, unbiased=False,
-        # not PyTorch's default). Then apply the learnable scale and
-        # shift. Output shape matches input.
-        raise NotImplementedError("implement LayerNorm.forward, Raschka 4.2")
+        # x: (b, num_tokens, emb_dim). Every token's vector is normalized on its own, over the last dimension.
+        mean = x.mean(dim=-1, keepdim=True)  # (b, num_tokens, 1)
+        var = x.var(dim=-1, keepdim=True, unbiased=False)  # (b, num_tokens, 1), the biased estimator
+        norm_x = (x - mean) / torch.sqrt(var + self.eps)  # (b, num_tokens, emb_dim), mean 0 and variance 1
+        return self.scale * norm_x + self.shift  # (b, num_tokens, emb_dim), the network may undo the normalization
 
 
 @app.cell
@@ -99,16 +103,20 @@ def _():
 class FeedForward(nn.Module):
     def __init__(self, cfg):
         super().__init__()
-        # A small MLP: a linear layer expanding emb_dim to 4x its size,
-        # a GELU activation (use the "tanh" approximation), and a second
-        # linear layer projecting back down to emb_dim. cfg["emb_dim"]
-        # gives you the size.
+        # Build one attribute, self.layers, with nn.Sequential holding
+        # three modules in exactly this order:
+        #   1. nn.Linear(cfg["emb_dim"], 4 * cfg["emb_dim"])   expands every token's vector to 4 times the size
+        #   2. nn.GELU(approximate="tanh")                     the non-linearity
+        #   3. nn.Linear(4 * cfg["emb_dim"], cfg["emb_dim"])   projects back down to emb_dim
+        # Keep the name self.layers: notebook 04 loads GPT-2's weights
+        # into self.layers[0] and self.layers[2].
         raise NotImplementedError("implement FeedForward.__init__, Raschka 4.3")
 
     def forward(self, x):
-        # x: (b, num_tokens, emb_dim). Apply the MLP; it acts on the
-        # last dimension only, so it is applied to every position
-        # independently. Output shape matches input.
+        # x: (b, num_tokens, emb_dim). One line: return what self.layers
+        # gives for x. nn.Linear only looks at the last dimension, so
+        # every position is processed independently. The output has
+        # the same shape as x.
         raise NotImplementedError("implement FeedForward.forward, Raschka 4.3")
 
 
@@ -147,24 +155,30 @@ def _():
 class TransformerBlock(nn.Module):
     def __init__(self, cfg):
         super().__init__()
-        # One MultiHeadAttention and one FeedForward sublayer (both
-        # configured from cfg: emb_dim as both d_in and d_out for
-        # attention, cfg["context_length"], cfg["n_heads"],
-        # cfg["drop_rate"] and cfg["qkv_bias"]). Each sublayer gets its
-        # own LayerNorm applied before it. One more dropout layer, applied
-        # after each sublayer, before it gets added back to the residual
-        # stream.
+        # Create these five attributes, with exactly these names (notebook
+        # 04 loads GPT-2's weights by name):
+        #   self.att = MultiHeadAttention(d_in=cfg["emb_dim"], d_out=cfg["emb_dim"],
+        #                                 context_length=cfg["context_length"], num_heads=cfg["n_heads"],
+        #                                 dropout=cfg["drop_rate"], qkv_bias=cfg["qkv_bias"])
+        #   self.ff = FeedForward(cfg)
+        #   self.norm1 = LayerNorm(cfg["emb_dim"])      goes before the attention
+        #   self.norm2 = LayerNorm(cfg["emb_dim"])      goes before the feed-forward
+        #   self.drop_shortcut = nn.Dropout(cfg["drop_rate"])   used after both sublayers
         raise NotImplementedError("implement TransformerBlock.__init__, Raschka 4.5")
 
     def forward(self, x, attn_mask=None):
-        # x: (b, num_tokens, emb_dim). Two sublayers, each following the
-        # same pattern: remember x as a shortcut, normalize it, run it
-        # through the sublayer (attention, then feed-forward), apply
-        # dropout, then add the shortcut back. This residual path is
-        # what keeps gradients flowing through a deep stack of blocks
-        # regardless of how many there are. Output shape matches input.
-        # attn_mask just passes straight through to the attention
-        # sublayer, unused until block 07 same as in MultiHeadAttention.
+        # x: (b, num_tokens, emb_dim). Two sublayers, one after the other.
+        # The attention sublayer, in five steps:
+        #   1. shortcut = x
+        #   2. x = self.norm1(x)
+        #   3. x = self.att(x, attn_mask=attn_mask)
+        #   4. x = self.drop_shortcut(x)
+        #   5. x = x + shortcut         the residual connection
+        # The feed-forward sublayer: the same five steps again, starting
+        # from the new x, with self.norm2 and self.ff(x) in steps 2 and 3
+        # (no attn_mask there).
+        # Return x. Its shape is the same as the input, which is what
+        # lets blocks stack.
         raise NotImplementedError("implement TransformerBlock.forward, Raschka 4.5")
 
 

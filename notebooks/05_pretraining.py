@@ -101,15 +101,17 @@ def _():
 @app.function
 @torch.no_grad()
 def evaluate(model, batches):
-    # Put the model in eval mode (turns dropout off). For each (x, y)
-    # batch: run the model on x to get logits (batch_size,
-    # context_length, vocab_size), then compute the cross-entropy loss
-    # against y. Cross entropy expects a flat batch of predictions
-    # against a flat batch of targets, so flatten the batch and sequence
-    # dimensions together first, on both logits and y.
-    #
-    # Restore train mode before returning the mean loss across all
-    # batches (not just the last one).
+    # 1. model.eval()                     turns dropout off
+    # 2. losses = []                      one loss per batch
+    # 3. for x, y in batches:
+    #      logits = model(x)              (batch_size, context_length, vocab_size)
+    #      loss = F.cross_entropy(logits.view(-1, logits.size(-1)), y.view(-1))
+    #        .view(-1, vocab_size) merges batch and sequence into one dimension,
+    #        (batch_size * context_length, vocab_size). y.view(-1) does the same
+    #        to the targets: (batch_size * context_length,).
+    #      losses.append(loss.item())     .item() turns the tensor into a plain float
+    # 4. model.train()                    dropout back on
+    # 5. return sum(losses) / len(losses) the mean over all batches
     raise NotImplementedError("implement evaluate, Raschka 5.1")
 
 
@@ -141,12 +143,11 @@ def _():
 
 @app.function
 def lr_at(step, progress):
-    # If step is still inside warmup (step < WARMUP_STEPS): linear
-    # warmup, MAX_LR * (step + 1) / WARMUP_STEPS.
-    #
-    # Otherwise: cosine decay from MAX_LR to MIN_LR as progress runs
-    # from 0 to 1:
-    #   MIN_LR + 0.5 * (MAX_LR - MIN_LR) * (1 + cos(pi * progress))
+    # 1. Warmup: if step < WARMUP_STEPS, return MAX_LR * (step + 1) / WARMUP_STEPS
+    # 2. Otherwise return
+    #      MIN_LR + 0.5 * (MAX_LR - MIN_LR) * (1 + math.cos(math.pi * progress))
+    #    progress runs from 0 to 1, so math.cos(math.pi * progress) falls
+    #    from 1 to -1 and the learning rate falls smoothly from MAX_LR to MIN_LR.
     raise NotImplementedError("implement lr_at, Raschka 5.2")
 
 
@@ -178,17 +179,16 @@ def _():
 @app.function
 def train_step(model, optimizer, x, y, device):
     # x, y: (batch_size, context_length) each.
-    #
-    # Run the model on x under torch.autocast(device_type=device.type,
-    # dtype=torch.bfloat16, enabled=...), enabled only when
-    # device.type is "cuda" (plain fp32 on CPU). Compute the
-    # cross-entropy training loss the same way evaluate() does: flatten
-    # logits and y together first.
-    #
-    # Zero the optimizer's gradients (set_to_none=True), backpropagate,
-    # clip the gradient norm to GRAD_CLIP, then step the optimizer.
-    #
-    # Return the loss as a plain float (.item()), not the tensor.
+    # 1. use_bf16 = device.type == "cuda"            bf16 only on the GPU
+    # 2. with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
+    #        logits = model(x)                       (batch_size, context_length, vocab_size)
+    #        loss = F.cross_entropy(logits.view(-1, logits.size(-1)), y.view(-1))
+    #    the same loss as in evaluate()
+    # 3. optimizer.zero_grad(set_to_none=True)
+    # 4. loss.backward()
+    # 5. torch.nn.utils.clip_grad_norm_(model.parameters(), GRAD_CLIP)
+    # 6. optimizer.step()
+    # 7. return loss.item()                          a plain float, not the tensor
     raise NotImplementedError("implement train_step, Raschka 5.2")
 
 
