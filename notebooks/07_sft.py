@@ -62,6 +62,9 @@ def _():
     instead of raw story text, plus a mask over the loss so only the
     response is trained on. Padding, and the two masks it forces, is
     the only genuinely new machinery, everything else is day 2 again.
+
+    In this notebook you write one function, `masked_mean`. Everything
+    else is given: read it, run it, and look at what the masks do.
     """)
     return
 
@@ -86,7 +89,7 @@ def _():
     return (gpt2_tokenizer,)
 
 
-@app.function
+@app.function(hide_code=True)
 def load_train_data():
     """Download and load the tokenized instruct dataset's train split."""
     train_tokens = np.load(
@@ -101,7 +104,7 @@ def load_train_data():
     return train_tokens, train_loss_mask, train_attn_mask
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     train_tokens, train_loss_mask, train_attn_mask = load_train_data()
     mo.md(f"loaded {train_tokens.shape[0]:,} tokenized train examples from `{DATASET_REPO_ID}`")
@@ -172,19 +175,18 @@ def _(gpt2_tokenizer, train_attn_mask, train_loss_mask, train_tokens):
 @app.cell(hide_code=True)
 def _():
     mo.md("""
-    ## Gap 1: a new batch sampler
+    ## A new batch sampler (given)
 
     Day 2's `get_batch` (`01_text_data.py`) slices random windows out of
     one flat token stream. That does not apply here, there is no
     stream: every row in `train_tokens` is already one complete, padded
     example.
 
-    Implement `get_instruct_batch`: pick `batch_size` random row
-    indices, then read `x` and `y` off those rows shifted by one token,
-    the same next-token-prediction shift `get_batch` uses, just applied
-    to whole rows instead of sliding windows. Slice `loss_mask` and
-    `attn_mask` the same way, in step with the tokens, so all four
-    still line up row for row.
+    `get_instruct_batch` picks `batch_size` random rows and reads `x`
+    and `y` off them shifted by one token, the same next-token
+    prediction shift `get_batch` uses. `loss_mask` and `attn_mask` are
+    sliced the same way, in step with the tokens, so all four still
+    line up row for row.
     """)
     return
 
@@ -199,22 +201,15 @@ def get_instruct_batch(tokens, loss_mask, attn_mask, batch_size, device):
     x_attn_mask against the input, since that is what MultiHeadAttention
     needs to know which key positions to ignore).
     """
-    # Tools for this gap: notebooks/torch_toolbox.py, section 07.
-    # tokens, loss_mask and attn_mask are numpy arrays of shape (n_examples, MAX_LEN).
-    # - Draw batch_size random row numbers with np.random.randint (from 0 up
-    #   to the number of examples). The same rows are used for all four arrays.
-    # - Build four arrays by picking those rows and slicing the columns:
-    #     x            from tokens, every column except the last (the input)
-    #     y            from tokens, every column except the first (the next
-    #                  token, the target)
-    #     y_loss_mask  from loss_mask, sliced like y (it marks which targets count)
-    #     x_attn_mask  from attn_mask, sliced like x (it marks which inputs are real)
-    # - Turn each of them into a torch tensor: cast the numpy array to
-    #   np.int64 with .astype, wrap it with torch.from_numpy, and move it to
-    #   `device` with .to.
-    # - Return the four tensors in the order x, y, y_loss_mask, x_attn_mask.
-    #   All have shape (batch_size, MAX_LEN - 1).
-    raise NotImplementedError("implement get_instruct_batch, Raschka 7.3")
+    n_examples = tokens.shape[0]
+    row_indices = np.random.randint(0, n_examples, size=batch_size)  # (batch_size,), the same rows for all four arrays
+
+    x = torch.from_numpy(tokens[row_indices, :-1].astype(np.int64)).to(device)  # (batch_size, MAX_LEN - 1)
+    y = torch.from_numpy(tokens[row_indices, 1:].astype(np.int64)).to(device)  # (batch_size, MAX_LEN - 1)
+    y_loss_mask = torch.from_numpy(loss_mask[row_indices, 1:].astype(np.int64)).to(device)  # shifted like y
+    x_attn_mask = torch.from_numpy(attn_mask[row_indices, :-1].astype(np.int64)).to(device)  # sliced like x
+
+    return x, y, y_loss_mask, x_attn_mask
 
 
 @app.cell
@@ -230,7 +225,7 @@ def _(device, train_attn_mask, train_loss_mask, train_tokens):
 @app.cell(hide_code=True)
 def _():
     mo.md("""
-    ## Gap 2: the masked loss
+    ## The masked loss, your gap
 
     Pretraining's loss, in full, two lines:
 
@@ -310,7 +305,7 @@ def _():
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(device):
     ft_repo_id = INSTRUCTOR_CHECKPOINT_REPO_ID if USE_INSTRUCTOR_CHECKPOINT else checkpoint_repo_id()
     try:
@@ -341,14 +336,14 @@ def _(device):
     return ft_cfg, ft_model, ft_repo_id
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(ft_cfg, ft_model, ft_repo_id):
     ft_num_params = sum(p.numel() for p in ft_model.parameters())
     mo.md(f"loaded {ft_num_params:,} parameters from `{ft_repo_id}`, config: {ft_cfg}")
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     held_out_prompt = (
         "Summary: A brave little fox helps a lost duckling find its way back to the pond.\n"
@@ -358,7 +353,7 @@ def _():
     return (held_out_prompt,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(device, ft_model, gpt2_tokenizer, held_out_prompt):
     _before_ids = torch.tensor([gpt2_tokenizer.encode_ordinary(held_out_prompt)], device=device)
     _before_output = generate(ft_model, _before_ids, max_new_tokens=200, context_length=MAX_LEN)
@@ -420,20 +415,20 @@ def _():
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     is_script_mode = mo.app_meta().mode == "script"
     return (is_script_mode,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     ft_run_button = mo.ui.run_button(label="Run fine-tuning")
     ft_run_button
     return (ft_run_button,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     # mo.state, not a plain returned variable: preserves the
     # fine-tuning result across reactive re-runs that are not a fresh
@@ -506,7 +501,7 @@ def _():
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(get_ft_result):
     def _rolling_mean(values, window):
         """Trailing mean over the last `window` steps (fewer at the very start)."""

@@ -55,6 +55,9 @@ def _():
     Raschka chapter 5.1-5.2: the loss, and the loop that drives it down.
     Everything before this notebook was architecture with no training
     signal. This is where the model actually learns TinyStories.
+
+    In this notebook you write one function, `evaluate`. Everything else
+    is given: read it, run it, and watch the loss fall.
     """)
     return
 
@@ -131,7 +134,7 @@ def _(device, val_data):
 @app.cell(hide_code=True)
 def _():
     mo.md("""
-    ## The learning rate schedule, Raschka 5.2
+    ## The learning rate schedule, Raschka 5.2 (given)
 
     Linear warmup from 0 up to `MAX_LR` over the first `WARMUP_STEPS`
     steps, then cosine decay from `MAX_LR` down to `MIN_LR` as
@@ -145,16 +148,11 @@ def _():
 
 @app.function
 def lr_at(step, progress):
-    # Torch tools for this gap: notebooks/torch_toolbox.py, section 05 (math.cos, math.pi).
-    # Two cases.
-    # - Warmup (step < WARMUP_STEPS): the learning rate grows linearly. Use
-    #   (step + 1) / WARMUP_STEPS as the fraction of MAX_LR, so even step 0
-    #   gets a small learning rate above zero.
-    # - After warmup: cosine decay. Start at MIN_LR and add what is left of
-    #   the gap: half of (MAX_LR - MIN_LR), multiplied by (1 + cos(pi *
-    #   progress)). math.cos works in radians.
-    # Check both ends: progress 0 must give MAX_LR, progress 1 must give MIN_LR.
-    raise NotImplementedError("implement lr_at, Raschka 5.2")
+    if step < WARMUP_STEPS:
+        # warmup: the rate grows linearly, and even step 0 gets a small rate above zero
+        return MAX_LR * (step + 1) / WARMUP_STEPS
+    # cosine decay: cos(pi * progress) falls from 1 to -1, so the rate falls smoothly from MAX_LR to MIN_LR
+    return MIN_LR + 0.5 * (MAX_LR - MIN_LR) * (1 + math.cos(math.pi * progress))
 
 
 @app.cell
@@ -169,7 +167,7 @@ def _():
 @app.cell(hide_code=True)
 def _():
     mo.md("""
-    ## One training step, Raschka 5.2
+    ## One training step, Raschka 5.2 (given)
 
     Forward pass under bf16 autocast on GPU (plain fp32 on CPU),
     cross-entropy on the flattened logits and targets, zero the
@@ -184,20 +182,17 @@ def _():
 
 @app.function
 def train_step(model, optimizer, x, y, device):
-    # Torch tools for this gap: notebooks/torch_toolbox.py, section 05.
-    # x, y: (batch_size, context_length) each. One training step, in this order:
-    # 1. Forward pass and loss, inside a torch.autocast block. It needs
-    #    device_type=device.type and dtype=torch.bfloat16, and it must only be
-    #    switched on (enabled=...) when the device is "cuda". The loss is the
-    #    same cross-entropy as in evaluate(), including the reshape.
-    # 2. Clear the old gradients: optimizer.zero_grad with set_to_none=True.
-    # 3. Backpropagate: loss.backward().
-    # 4. Clip the gradients: torch.nn.utils.clip_grad_norm_ on the model's
-    #    parameters, with GRAD_CLIP as the maximum norm.
-    # 5. Let the optimizer take its step.
-    # 6. Return the loss as a plain float, not as a tensor (.item()). A
-    #    tensor would keep the whole computation graph in memory.
-    raise NotImplementedError("implement train_step, Raschka 5.2")
+    # x, y: (batch_size, context_length) each
+    use_bf16 = device.type == "cuda"  # lower precision only on the GPU
+    with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
+        logits = model(x)  # (batch_size, context_length, vocab_size)
+        loss = F.cross_entropy(logits.view(-1, logits.size(-1)), y.view(-1))  # the same loss as in evaluate()
+
+    optimizer.zero_grad(set_to_none=True)  # forget the gradients of the last step
+    loss.backward()  # gradient of the loss for every parameter
+    torch.nn.utils.clip_grad_norm_(model.parameters(), GRAD_CLIP)  # keep one bad batch from pushing too hard
+    optimizer.step()  # change the parameters
+    return loss.item()  # a plain float, not a tensor, so the computation graph can be freed
 
 
 @app.cell
@@ -220,22 +215,25 @@ def _(device, val_data):
 @app.cell(hide_code=True)
 def _():
     mo.md("""
-    ## The training loop, Raschka 5.2
+    ## The training loop, Raschka 5.2 (given, you do not need to read the code)
 
-    The harness around the two pieces above: AdamW, the stopping
-    condition, and the bookkeeping. Two stopping modes: a wall clock
-    budget (this notebook's 12 minute demo, where seeing more tokens
-    per second is a fair part of what is being shown) or a fixed step
-    count (day 3's ablation harness, `components/ablation_harness.py`,
-    where every config must see exactly the same number of tokens or a
-    throughput difference gets mistaken for a real effect).
-    `seed` is a parameter, not hardcoded, for the same reason: an
-    ablation without a noise floor across seeds is not a measurement.
+    `train_model` is a loop that ties the pieces together, its code is
+    hidden. In plain words, for every step:
+
+    1. ask `lr_at` for this step's learning rate
+    2. draw a batch with `get_batch` from notebook 01
+    3. let `train_step` learn from it
+    4. every 100 steps, measure the validation loss with your `evaluate`
+    5. every 250 steps, let the model write a short story, so you can
+       watch it improve
+
+    It stops when the time is up (this notebook's 12 minute run) or after a
+    fixed number of steps (day 3's ablation harness uses that mode).
     """)
     return
 
 
-@app.function
+@app.function(hide_code=True)
 def train_model(
     model,
     train_data,
@@ -361,13 +359,13 @@ def _():
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     is_script_mode = mo.app_meta().mode == "script"
     return (is_script_mode,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     run_seconds = mo.ui.number(value=720, start=60, stop=3600, label="Training seconds (12 min default)")
     run_prompt = mo.ui.text(value="Once upon a time", label="Generation prompt")
@@ -376,7 +374,7 @@ def _():
     return run_button, run_prompt, run_seconds
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     # Preserves the run's result across reactive re-runs that are not a
     # fresh button click, see 99_calibration.py for the full reasoning.
@@ -384,7 +382,7 @@ def _():
     return get_run_result, set_run_result
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(
     device,
     gpt2_tokenizer,
@@ -450,7 +448,7 @@ def _():
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(get_run_result):
     _result = get_run_result()
     _history = _result["history"] if _result is not None else []
@@ -514,7 +512,7 @@ def _():
     return
 
 
-@app.function
+@app.function(hide_code=True)
 def checkpoint_repo_id():
     """f"{your Hub username}/anlp-day2-pretrained", derived from whoever
     HF_TOKEN belongs to. Not in the setup cell: 07_sft.py imports this
@@ -528,7 +526,7 @@ def checkpoint_repo_id():
     return f"{username}/anlp-day2-pretrained"
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(get_run_result):
     _result = get_run_result()
     hub_api = None
